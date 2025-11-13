@@ -127,6 +127,33 @@ static void reabastecerFila(Fila* f) {
     }
 }
 
+// --------- Ações estratégicas (trocas) ---------
+// Troca a peça da frente da fila com o topo da pilha
+static int trocarFrenteComTopo(Fila* f, Pilha* p) {
+    if (filaVazia(f) || pilhaVazia(p)) return 0;
+    int idxFrente = f->frente;
+    int idxTopo = p->tamanho - 1;
+    Peca tmp = f->dados[idxFrente];
+    f->dados[idxFrente] = p->dados[idxTopo];
+    p->dados[idxTopo] = tmp;
+    return 1;
+}
+
+// Troca as 3 primeiras peças da fila com as 3 do topo da pilha
+static int trocarTres(Fila* f, Pilha* p) {
+    if (f->tamanho < 3 || p->tamanho < 3) return 0;
+    int qIdx[3];
+    for (int i = 0; i < 3; i++) qIdx[i] = (f->frente + i) % CAPACIDADE_FILA;
+    int baseTopo = p->tamanho - 1; // topo = baseTopo, depois baseTopo-1, baseTopo-2
+    for (int i = 0; i < 3; i++) {
+        int sIdx = baseTopo - i; // topo, topo-1, topo-2
+        Peca tmp = f->dados[qIdx[i]];
+        f->dados[qIdx[i]] = p->dados[sIdx];
+        p->dados[sIdx] = tmp;
+    }
+    return 1;
+}
+
 // --------- Programa principal ---------
 int main(void) {
     srand((unsigned)time(NULL));
@@ -151,6 +178,9 @@ int main(void) {
         printf("1 - Jogar peca\n");
         printf("2 - Reservar peca (mover da fila para a pilha)\n");
         printf("3 - Usar peca reservada (remover da pilha)\n");
+        printf("4 - Trocar frente da fila com topo da pilha\n");
+        printf("5 - Trocar 3 primeiros da fila com 3 da pilha\n");
+        printf("6 - Visualizar estado (fila e pilha)\n");
         printf("0 - Sair\n");
         printf("Escolha: ");
 
@@ -200,6 +230,32 @@ int main(void) {
                 }
                 // Mantem fila cheia (se houver espaço)
                 reabastecerFila(&fila);
+                mostrarFila(&fila);
+                mostrarPilha(&pilha);
+                break;
+            }
+            case 4: {
+                if (trocarFrenteComTopo(&fila, &pilha)) {
+                    printf("Troca realizada: frente da fila <-> topo da pilha.\n");
+                } else {
+                    printf("Nao foi possivel trocar (verifique se fila/pilha estao vazias).\n");
+                }
+                // Nao ha remocoes aqui; fila permanece cheia.
+                mostrarFila(&fila);
+                mostrarPilha(&pilha);
+                break;
+            }
+            case 5: {
+                if (trocarTres(&fila, &pilha)) {
+                    printf("Troca dos 3 primeiros da fila com os 3 da pilha realizada.\n");
+                } else {
+                    printf("Nao foi possivel trocar 3 pecas (requer pelo menos 3 na fila e 3 na pilha).\n");
+                }
+                mostrarFila(&fila);
+                mostrarPilha(&pilha);
+                break;
+            }
+            case 6: {
                 mostrarFila(&fila);
                 mostrarPilha(&pilha);
                 break;
