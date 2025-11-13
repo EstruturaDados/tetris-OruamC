@@ -1,6 +1,7 @@
-// Tetris Stack – Fila Circular de Peças Futuras
-// Nível: Básico (apenas Fila)
-// Funcionalidades: inicializar fila, jogar peça (dequeue), inserir nova peça (enqueue), exibir estado.
+// Tetris Stack – Fila Circular + Pilha de Reserva
+// Nível: Intermediário (fila de peças futuras e pilha de reserva)
+// Funcionalidades: inicializar fila, jogar peça, reservar peça (fila->pilha),
+// usar peça reservada (pilha), manter a fila sempre cheia (auto-geração) e exibir estado.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,7 @@
 
 // --------- Definições e estruturas ---------
 #define CAPACIDADE_FILA 5
+#define CAPACIDADE_PILHA 3
 
 // Representa uma peça do Tetris
 typedef struct {
@@ -22,6 +24,12 @@ typedef struct {
     int tras;     // próxima posição livre ao final
     int tamanho;  // quantidade de elementos na fila
 } Fila;
+
+// Pilha linear (reserva)
+typedef struct {
+    Peca dados[CAPACIDADE_PILHA];
+    int tamanho; // quantidade de elementos (topo está em tamanho-1)
+} Pilha;
 
 // --------- Utilidades de I/O ---------
 static void limparBufferEntrada(void) {
@@ -81,26 +89,68 @@ static void mostrarFila(const Fila* f) {
     printf("\n");
 }
 
+// --------- Operações sobre a pilha ---------
+static void inicializarPilha(Pilha* p) { p->tamanho = 0; }
+static int pilhaVazia(const Pilha* p) { return p->tamanho == 0; }
+static int pilhaCheia(const Pilha* p) { return p->tamanho == CAPACIDADE_PILHA; }
+
+// Empilha (push). Retorna 1 se OK, 0 se cheia
+static int push(Pilha* p, Peca valor) {
+    if (pilhaCheia(p)) return 0;
+    p->dados[p->tamanho] = valor;
+    p->tamanho++;
+    return 1;
+}
+
+// Desempilha (pop). Retorna 1 se OK, 0 se vazia
+static int pop(Pilha* p, Peca* removida) {
+    if (pilhaVazia(p)) return 0;
+    p->tamanho--;
+    if (removida) *removida = p->dados[p->tamanho];
+    return 1;
+}
+
+static void mostrarPilha(const Pilha* p) {
+    printf("Pilha de reserva  (Topo -> Base): ");
+    if (pilhaVazia(p)) { printf("(vazia)\n"); return; }
+    // Mostra do topo para a base
+    for (int i = p->tamanho - 1; i >= 0; i--) {
+        printf("[%c %d] ", p->dados[i].nome, p->dados[i].id);
+    }
+    printf("\n");
+}
+
+// Mantém a fila cheia gerando novas peças até capacidade
+static void reabastecerFila(Fila* f) {
+    while (f->tamanho < CAPACIDADE_FILA) {
+        enqueue(f, gerarPeca());
+    }
+}
+
 // --------- Programa principal ---------
 int main(void) {
     srand((unsigned)time(NULL));
 
     Fila fila;
     inicializarFila(&fila);
+    Pilha pilha;
+    inicializarPilha(&pilha);
 
     // Inicializa a fila com um número fixo de elementos (5)
     for (int i = 0; i < CAPACIDADE_FILA; i++) {
         enqueue(&fila, gerarPeca());
     }
 
-    printf("Tetris Stack – Fila de Pecas Futuras\n");
+    printf("Tetris Stack – Gerenciamento de Pecas (Fila + Pilha)\n");
     mostrarFila(&fila);
+    mostrarPilha(&pilha);
 
     int opcao;
     do {
         printf("\nOpcoes:\n");
-        printf("1 - Jogar peca (dequeue)\n");
-        printf("2 - Inserir nova peca (enqueue)\n");
+        printf("1 - Jogar peca\n");
+        printf("2 - Reservar peca (mover da fila para a pilha)\n");
+        printf("3 - Usar peca reservada (remover da pilha)\n");
         printf("0 - Sair\n");
         printf("Escolha: ");
 
@@ -109,24 +159,49 @@ int main(void) {
 
         switch (opcao) {
             case 1: {
+                // Jogar peça: remove da frente da fila
                 Peca jogada;
                 if (dequeue(&fila, &jogada)) {
                     printf("Jogou a peca [%c %d].\n", jogada.nome, jogada.id);
                 } else {
                     printf("Fila vazia. Nao ha peca para jogar.\n");
                 }
+                // Reabastece a fila para manter cheia
+                reabastecerFila(&fila);
                 mostrarFila(&fila);
+                mostrarPilha(&pilha);
                 break;
             }
             case 2: {
-                if (filaCheia(&fila)) {
-                    printf("Fila cheia. Nao e possivel inserir nova peca.\n");
+                // Reservar peça: move frente da fila para topo da pilha
+                if (pilhaCheia(&pilha)) {
+                    printf("Pilha de reserva cheia. Nao e possivel reservar mais pecas.\n");
+                } else if (filaVazia(&fila)) {
+                    printf("Fila vazia. Nao ha peca para reservar.\n");
                 } else {
-                    Peca nova = gerarPeca();
-                    enqueue(&fila, nova);
-                    printf("Inserida nova peca [%c %d] ao final da fila.\n", nova.nome, nova.id);
+                    Peca reservada;
+                    dequeue(&fila, &reservada);
+                    push(&pilha, reservada);
+                    printf("Reservou a peca [%c %d] para a pilha.\n", reservada.nome, reservada.id);
                 }
+                // Reabastece a fila para manter cheia
+                reabastecerFila(&fila);
                 mostrarFila(&fila);
+                mostrarPilha(&pilha);
+                break;
+            }
+            case 3: {
+                // Usar peça reservada: pop da pilha
+                Peca usada;
+                if (pop(&pilha, &usada)) {
+                    printf("Usou a peca reservada [%c %d].\n", usada.nome, usada.id);
+                } else {
+                    printf("Pilha vazia. Nao ha peca reservada para usar.\n");
+                }
+                // Mantem fila cheia (se houver espaço)
+                reabastecerFila(&fila);
+                mostrarFila(&fila);
+                mostrarPilha(&pilha);
                 break;
             }
             case 0:
